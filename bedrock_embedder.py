@@ -41,7 +41,7 @@ def create_aws_client(plugin, service_name):
         log.error("An error occurred while creating the AWS client: %s", e)
         return None
 
-def get_aws_client(service_name="bedrock"):
+def get_aws_client(service_name):
     """Retrieve an AWS client for a specific service using a plugin."""
     aws_plugin = get_plugin_by_name(mad, "aws_integration")
     if aws_plugin:
@@ -94,44 +94,44 @@ def create_dynamic_model(client) -> BaseModel:
     fields = {**fields, **dynamic_fields}
     dynamic_model = create_model("DynamicModel", **fields)
 
-    class AmazonBedrockEmbeddingsSettings(dynamic_model):
-        
-        @model_validator(mode="before")
-        def ensure_opposites(cls, values):
-            true_fields = [
-                field for field in dynamic_fields.keys() if values.get(field, False)
-            ]
+    return dynamic_model, dynamic_fields, models
 
-            if true_fields:
-                values["model_id"] = models[true_fields[0]][0]
-                for field in true_fields[1:]:
-                    values[field] = False
-            else:
-                values["model_id"] = values.get("model_id", DEFAULT_MODEL)
+bedrock = get_aws_client(service_name="bedrock")
+bedrock_runtime = get_aws_client(service_name="bedrock-runtime")
+dynamic_model, dynamic_fields, models = create_dynamic_model(bedrock)
 
-            return values
+def ensure_opposites(values, dynamic_fields, models):
+    true_fields = [
+        field for field in dynamic_fields.keys() if values.get(field, False)
+    ]
 
-    return AmazonBedrockEmbeddingsSettings
+    if true_fields:
+        values["model_id"] = models[true_fields[0]][0]
+        for field in true_fields[1:]:
+            values[field] = False
+    else:
+        values["model_id"] = values.get("model_id", DEFAULT_MODEL)
 
-client = get_aws_client()
+    return values
 
-@plugin
-def settings_model():
-    return create_dynamic_model(client)
+    
+class AmazonBedrockEmbeddingsSettings(dynamic_model):
+    @model_validator(mode="before")
+    def validate(cls, values):
+        return ensure_opposites(values, dynamic_fields, models)
 
 class CustomBedrockEmbeddings(BedrockEmbeddings):
     def __init__(self, **kwargs: Any) -> None:
         input_kwargs = {
             "model_id": kwargs.get("model_id", DEFAULT_MODEL),
             "normalize": kwargs.get("normalize", False),
-            "model_kwargs": json.loads(kwargs.get("model_kwargs")),
-            "client": client,
+            "model_kwargs": json.loads(kwargs.get("model_kwargs", "{}")),
+            "client": bedrock_runtime
         }
         input_kwargs = {k: v for k, v in input_kwargs.items() if v is not None}
         super().__init__(**input_kwargs)
 
-
-class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
+class AmazonBedrockEmbeddingsConfig(EmbedderSettings, dynamic_model):
     model_id: str = DEFAULT_MODEL
     model_kwargs: str = "{}"
     normalize: bool = False
@@ -144,8 +144,15 @@ class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
             "link": "https://aws.amazon.com/bedrock/",
         }
     )
+    
+    @model_validator(mode="before")
+    def validate(cls, values):
+        return ensure_opposites(values, dynamic_fields, models)
 
-
+@plugin
+def settings_model():
+    return AmazonBedrockEmbeddingsSettings
+    
 @hook
 def factory_allowed_embedders(allowed, cat) -> List:
     global plugin_path
