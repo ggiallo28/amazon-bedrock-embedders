@@ -10,6 +10,8 @@ from cat.factory.embedder import EmbedderSettings
 
 mad = MadHatter()
 
+DEFAULT_MODEL =  "amazon.titan-embed-text-v1"
+
 
 class Boto3ClientBuilder:
     def __init__(
@@ -88,7 +90,7 @@ def create_dynamic_model() -> BaseModel:
     fields = {
         "model_id": (
             str,
-            Field(default="", description="Unique identifier for the model."),
+            Field(default=DEFAULT_MODEL, description="Unique identifier for the model."),
         ),
         "model_kwargs": (
             dict,
@@ -135,6 +137,8 @@ def create_dynamic_model() -> BaseModel:
                 values["model_id"] = models[true_fields[0]]
                 for field in true_fields[1:]:
                     values[field] = False
+            else:
+                values["model_id"] = values.get("model_id", DEFAULT_MODEL)
                     
             return values
 
@@ -162,7 +166,7 @@ class CustomBedrockEmbeddings(BedrockEmbeddings):
 
 
 class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
-    model_id: str = "amazon.titan-embed-text-v1"
+    model_id: str = DEFAULT_MODEL
     model_kwargs: dict = {}
     normalize: bool = False
     _pyclass: Type = CustomBedrockEmbeddings
