@@ -139,7 +139,7 @@ def create_dynamic_model() -> BaseModel:
             
             return values
 
-    return dynamic_model
+    return AmazonBedrockEmbeddingsSettings
 
 
 @plugin
