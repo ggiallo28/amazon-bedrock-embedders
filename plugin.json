@@ -1,10 +1,10 @@
 {
     "name": "Amazon Bedrock Embeddings",
-    "version": "0.0.1",
-    "description": "Description of bedrock_embeddings.",
-    "author_name": "Me",
-    "author_url": "https://mywebsite.me",
-    "plugin_url": "https://github.com/my_name/bedrock_embeddings",
-    "tags": "cat, template, example",
-    "thumb": "https://raw.githubusercontent.com/my_repo_path/bedrock_embeddings.png"
+    "version": "1.0.0",
+    "description": "This plugin integrates Amazon Bedrock's text embedding capabilities.",
+    "author_name": "Gianluigi Mucciolo",
+    "author_url": "https://www.linkedin.com/in/ggiallo28/",
+    "plugin_url": "https://github.com/ggiallo28/aws-integration.git",
+    "tags": "AWS, Bedrock, embeddings, integration",
+    "thumb": "https://raw.githubusercontent.com/ggiallo28/amazon-bedrock-embeddings/assets/master/logo.png"
 }
