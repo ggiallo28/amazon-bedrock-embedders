@@ -180,6 +180,6 @@ class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
 @hook
 def factory_allowed_embedders(allowed, cat) -> List:
     global plugin_path
-    plugin_path = MadHatter().get_plugin().path
+    plugin_path = mad.get_plugin().path
     allowed.append(AmazonBedrockEmbeddingsConfig)
     return allowed
