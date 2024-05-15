@@ -29,13 +29,17 @@ class Boto3ClientBuilder:
         self.endpoint_url = endpoint_url
         self.iam_role_assigned = iam_role_assigned
         self.region_name = region_name
+
     def set_profile_name(self, profile_name: str):
         self.profile_name = profile_name
+
     def set_credentials(self, aws_access_key_id: str, aws_secret_access_key: str):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
+
     def set_endpoint_url(self, endpoint_url: str):
         self.endpoint_url = endpoint_url
+
     def build_client(self):
         if self.iam_role_assigned:
             session = boto3.Session()
@@ -82,9 +86,24 @@ else:
 
 def create_dynamic_model() -> BaseModel:
     fields = {
-        "model_id": (str, Field(default="")),
-        "model_kwargs": (dict, Field(default={})),
-        "normalize": (bool, Field(default=False)),
+        "model_id": (
+            str,
+            Field(default="", description="Unique identifier for the model."),
+        ),
+        "model_kwargs": (
+            dict,
+            Field(
+                default={},
+                description="Keyword arguments specific to the model configuration.",
+            ),
+        ),
+        "normalize": (
+            bool,
+            Field(
+                default=False,
+                description="Flag to determine if the model output should be normalized.",
+            ),
+        ),
     }
     response = client.list_foundation_models(byOutputModality="EMBEDDING")
     models = defaultdict(list)
@@ -92,47 +111,56 @@ def create_dynamic_model() -> BaseModel:
         modelName = f"{model['providerName']} {model['modelName']}"
         modelId = model["modelId"]
         models[modelName].append(modelId)
-    
+
     dynamic_fields = {}
     for modelName, model_ids in models.items():
-        dynamic_fields[modelName] = (bool, Field(default=False))
-    
+        dynamic_fields[modelName] = (
+            bool,
+            Field(default=False, description=f"Enable/disable the {modelName} model."),
+        )
+
     fields = {**fields, **dynamic_fields}
     dynamic_model = create_model("DynamicModel", **fields)
-    
+
     class AmazonBedrockEmbeddingsSettings(dynamic_model):
         @model_validator(mode="before")
         def ensure_opposites(cls, values):
             true_fields = {
-                field: values[field] 
-                for field in dynamic_fields.keys() if values.get(field, False)
+                field: values[field]
+                for field in dynamic_fields.keys()
+                if values.get(field, False)
             }
             if len(true_fields) > 1:
                 first_true_field = true_fields[0]
                 for field in true_fields[1:]:
                     values[field] = False
             return values
+
     return dynamic_model
+
 
 @plugin
 def settings_model():
     return create_dynamic_model()
 
+
 class CustomBedrockEmbeddings(BedrockEmbeddings):
     def __init__(self, **kwargs: Any) -> None:
         input_kwargs = {
             "region_name": settings.get("region_name"),
-            "model_id": 'amazon.titan-embed-text-v1'
+            "model_id": "amazon.titan-embed-text-v1",
         }
         if settings.get("credentials_profile_name"):
-            input_kwargs["credentials_profile_name"] = settings.get("credentials_profile_name")
+            input_kwargs["credentials_profile_name"] = settings.get(
+                "credentials_profile_name"
+            )
         if settings.get("endpoint_url"):
             input_kwargs["endpoint_url"] = settings.get("endpoint_url")
         super().__init__(**input_kwargs)
 
 
 class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
-    model_id: str = 'amazon.titan-embed-text-v1'
+    model_id: str = "amazon.titan-embed-text-v1"
     model_kwargs: dict = {}
     normalize: bool = False
     _pyclass: Type = CustomBedrockEmbeddings
@@ -144,7 +172,8 @@ class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
             "link": "https://aws.amazon.com/bedrock/",
         }
     )
-    
+
+
 @hook
 def factory_allowed_embeddings(allowed, cat) -> List:
     global plugin_path
