@@ -77,7 +77,7 @@ if aws_plugin_name:
             aws_secret_access_key=settings.get("aws_secret_access_key"),
             endpoint_url=settings.get("endpoint_url"),
             iam_role_assigned=settings.get("iam_role_assigned"),
-            region_name=settings.get("region_name"),
+            region_name=settings.get("region_name", DEFAULT_REGION),
         )
         client = client_builder.build_client()
         print("AWS client successfully created.")
@@ -154,7 +154,7 @@ def settings_model():
 class CustomBedrockEmbeddings(BedrockEmbeddings):
     def __init__(self, **kwargs: Any) -> None:
         input_kwargs = {
-            "model_id": kwarge.get("model_id", DEFAULT_MODEL),
+            "model_id": kwargs.get("model_id", DEFAULT_MODEL),
             "credentials_profile_name": settings.get("credentials_profile_name"),
             "endpoint_url": settings.get("endpoint_url"),
             "normalize": kwargs.get("normalize", False),
