@@ -1,10 +1,12 @@
 from cat.mad_hatter.decorators import tool, hook, plugin
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, model_validator, Field, create_model, ConfigDict
 from datetime import datetime, date
 from cat.mad_hatter.mad_hatter import MadHatter
 from collections import defaultdict
 import boto3
-from typing import Optional
+from typing import Any, List, Mapping, Optional, Type
+from langchain_community.embeddings import BedrockEmbeddings
+from cat.factory.embedder import EmbedderSettings
 
 mad = MadHatter()
 
@@ -27,17 +29,13 @@ class Boto3ClientBuilder:
         self.endpoint_url = endpoint_url
         self.iam_role_assigned = iam_role_assigned
         self.region_name = region_name
-
     def set_profile_name(self, profile_name: str):
         self.profile_name = profile_name
-
     def set_credentials(self, aws_access_key_id: str, aws_secret_access_key: str):
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
-
     def set_endpoint_url(self, endpoint_url: str):
         self.endpoint_url = endpoint_url
-
     def build_client(self):
         if self.iam_role_assigned:
             session = boto3.Session()
@@ -50,12 +48,11 @@ class Boto3ClientBuilder:
                 session_kwargs["aws_secret_access_key"] = self.aws_secret_access_key
             session = boto3.Session(**session_kwargs)
         client_kwargs = {
-            "service_name": self.service_name,
-            "region_name": self.service_name,
+            "region_name": self.region_name,
         }
         if self.endpoint_url:
             client_kwargs["endpoint_url"] = self.endpoint_url
-        return session.client(**client_kwargs)
+        return session.client(self.service_name, **client_kwargs)
 
 
 aws_plugin_name = next(
@@ -85,45 +82,72 @@ else:
 
 def create_dynamic_model() -> BaseModel:
     fields = {
-        "required_bool1": (bool, Field(default=False)),
-        "required_bool2": (bool, Field(default=False)),
-        "required_int": (int, ...),
-        "optional_int": (int, Field(default=69)),
-        "required_str": (str, ...),
-        "optional_str": (str, Field(default="meow")),
-        "required_date": (date, ...),
-        "optional_date": (date, Field(default=date.fromtimestamp(1679616000))),
-        "aws_region": (str, Field(default="us-east-1")),
+        "model_id": (str, Field(default="")),
+        "model_kwargs": (dict, Field(default={})),
+        "normalize": (bool, Field(default=False)),
     }
-
     response = client.list_foundation_models(byOutputModality="EMBEDDING")
     models = defaultdict(list)
     for model in response["modelSummaries"]:
-        model_name = f"{model['providerName']} {model['modelName']}"
-        model_id = model["modelId"]
-        models[model_name].append(model_id)
-    models = dict(models)
-
-    for model_name, model_ids in models.items():
-        fields[model_name] = (list, Field(default_factory=lambda: model_ids))
-    dynamic_model = type("DynamicModel", (BaseModel,), fields)
+        modelName = f"{model['providerName']} {model['modelName']}"
+        modelId = model["modelId"]
+        models[modelName].append(modelId)
+    
+    dynamic_fields = {}
+    for modelName, model_ids in models.items():
+        dynamic_fields[modelName] = (bool, Field(default=False))
+    
+    fields = {**fields, **dynamic_fields}
+    dynamic_model = create_model("DynamicModel", **fields)
+    
+    class AmazonBedrockEmbeddingsSettings(dynamic_model):
+        @model_validator(mode="before")
+        def ensure_opposites(cls, values):
+            true_fields = {
+                field: values[field] 
+                for field in dynamic_fields.keys() if values.get(field, False)
+            }
+            if len(true_fields) > 1:
+                first_true_field = true_fields[0]
+                for field in true_fields[1:]:
+                    values[field] = False
+            return values
     return dynamic_model
-
-
-DynamicModel = create_dynamic_model()
-
-
-class AmazonBedrockEmbeddingsSettings(DynamicModel):
-
-    @model_validator(mode="before")
-    def ensure_opposites(cls, values):
-        if values.get("required_bool1"):
-            values["required_bool2"] = False
-        elif values.get("required_bool2"):
-            values["required_bool1"] = False
-        return values
-
 
 @plugin
 def settings_model():
-    return AmazonBedrockEmbeddingsSettings
+    return create_dynamic_model()
+
+class CustomBedrockEmbeddings(BedrockEmbeddings):
+    def __init__(self, **kwargs: Any) -> None:
+        input_kwargs = {
+            "region_name": settings.get("region_name"),
+            "model_id": 'amazon.titan-embed-text-v1'
+        }
+        if settings.get("credentials_profile_name"):
+            input_kwargs["credentials_profile_name"] = settings.get("credentials_profile_name")
+        if settings.get("endpoint_url"):
+            input_kwargs["endpoint_url"] = settings.get("endpoint_url")
+        super().__init__(**input_kwargs)
+
+
+class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
+    model_id: str = 'amazon.titan-embed-text-v1'
+    model_kwargs: dict = {}
+    normalize: bool = False
+    _pyclass: Type = CustomBedrockEmbeddings
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "humanReadableName": "Amazon Bedrock Embeddings",
+            "description": "Configuration for Amazon Bedrock Embeddings",
+            "link": "https://aws.amazon.com/bedrock/",
+        }
+    )
+    
+@hook
+def factory_allowed_embeddings(allowed, cat) -> List:
+    global plugin_path
+    plugin_path = MadHatter().get_plugin().path
+    allowed.append(AmazonBedrockEmbeddingsConfig)
+    return allowed
