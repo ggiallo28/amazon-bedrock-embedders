@@ -1,5 +1,5 @@
 {
-    "name": "Amazon Bedrock Embeddings",
+    "name": "Amazon Bedrock Embedder",
     "version": "1.0.0",
     "description": "This plugin integrates Amazon Bedrock's text embedding capabilities.",
     "author_name": "Gianluigi Mucciolo",
