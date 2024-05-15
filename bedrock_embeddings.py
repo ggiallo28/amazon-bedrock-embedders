@@ -11,6 +11,7 @@ from cat.factory.embedder import EmbedderSettings
 mad = MadHatter()
 
 DEFAULT_MODEL =  "amazon.titan-embed-text-v1"
+DEFAULT_REGION = "us-east-1"
 
 
 class Boto3ClientBuilder:
@@ -153,17 +154,15 @@ def settings_model():
 class CustomBedrockEmbeddings(BedrockEmbeddings):
     def __init__(self, **kwargs: Any) -> None:
         input_kwargs = {
-            "region_name": settings.get("region_name"),
-            "model_id": "amazon.titan-embed-text-v1",
+            "model_id": kwarge.get("model_id", DEFAULT_MODEL),
+            "credentials_profile_name": settings.get("credentials_profile_name"),
+            "endpoint_url": settings.get("endpoint_url"),
+            "normalize": kwargs.get("normalize", False),
+            "model_kwargs": kwargs.get("model_kwargs"),
+            "client": client
         }
-        if settings.get("credentials_profile_name"):
-            input_kwargs["credentials_profile_name"] = settings.get(
-                "credentials_profile_name"
-            )
-        if settings.get("endpoint_url"):
-            input_kwargs["endpoint_url"] = settings.get("endpoint_url")
+        input_kwargs = {k: v for k, v in input_kwargs.items() if v is not None}
         super().__init__(**input_kwargs)
-
 
 class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
     model_id: str = DEFAULT_MODEL
