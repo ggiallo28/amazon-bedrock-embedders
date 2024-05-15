@@ -125,15 +125,18 @@ def create_dynamic_model() -> BaseModel:
     class AmazonBedrockEmbeddingsSettings(dynamic_model):
         @model_validator(mode="before")
         def ensure_opposites(cls, values):
-            true_fields = {
-                field: values[field]
+            true_fields = [
+                field
                 for field in dynamic_fields.keys()
                 if values.get(field, False)
-            }
+            ]
             if len(true_fields) > 1:
                 first_true_field = true_fields[0]
                 for field in true_fields[1:]:
                     values[field] = False
+            if len(true_fields) >= 1:
+                values["model_id"] = models[true_fields[0]]
+            
             return values
 
     return dynamic_model
@@ -175,7 +178,7 @@ class AmazonBedrockEmbeddingsConfig(EmbedderSettings):
 
 
 @hook
-def factory_allowed_embeddings(allowed, cat) -> List:
+def factory_allowed_embedders(allowed, cat) -> List:
     global plugin_path
     plugin_path = MadHatter().get_plugin().path
     allowed.append(AmazonBedrockEmbeddingsConfig)
