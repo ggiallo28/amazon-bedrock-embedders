@@ -130,13 +130,12 @@ def create_dynamic_model() -> BaseModel:
                 for field in dynamic_fields.keys()
                 if values.get(field, False)
             ]
-            if len(true_fields) > 1:
-                first_true_field = true_fields[0]
+
+            if true_fields:
+                values["model_id"] = models[true_fields[0]]
                 for field in true_fields[1:]:
                     values[field] = False
-            if len(true_fields) >= 1:
-                values["model_id"] = models[true_fields[0]]
-            
+                    
             return values
 
     return AmazonBedrockEmbeddingsSettings
