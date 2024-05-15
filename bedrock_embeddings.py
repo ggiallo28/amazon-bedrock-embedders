@@ -13,6 +13,7 @@ class Boto3ClientBuilder:
     def __init__(
         self,
         service_name: str,
+        region_name: str,
         profile_name: Optional[str] = None,
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
@@ -25,6 +26,7 @@ class Boto3ClientBuilder:
         self.aws_secret_access_key = aws_secret_access_key
         self.endpoint_url = endpoint_url
         self.iam_role_assigned = iam_role_assigned
+        self.region_name = region_name
 
     def set_profile_name(self, profile_name: str):
         self.profile_name = profile_name
@@ -47,7 +49,10 @@ class Boto3ClientBuilder:
                 session_kwargs["aws_access_key_id"] = self.aws_access_key_id
                 session_kwargs["aws_secret_access_key"] = self.aws_secret_access_key
             session = boto3.Session(**session_kwargs)
-        client_kwargs = {"service_name": self.service_name}
+        client_kwargs = {
+            "service_name": self.service_name,
+            "region_name": self.service_name,
+        }
         if self.endpoint_url:
             client_kwargs["endpoint_url"] = self.endpoint_url
         return session.client(**client_kwargs)
@@ -68,6 +73,7 @@ if aws_plugin_name:
             aws_secret_access_key=settings.get("aws_secret_access_key"),
             endpoint_url=settings.get("endpoint_url"),
             iam_role_assigned=settings.get("iam_role_assigned"),
+            region_name=settings.get("region_name"),
         )
         client = client_builder.build_client()
         print("AWS client successfully created.")
