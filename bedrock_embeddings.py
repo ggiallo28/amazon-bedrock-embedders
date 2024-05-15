@@ -8,16 +8,23 @@ from typing import Optional
 
 mad = MadHatter()
 
+
 class Boto3ClientBuilder:
-    def __init__(self, service_name: str, profile_name: Optional[str] = None,
-                 aws_access_key_id: Optional[str] = None,
-                 aws_secret_access_key: Optional[str] = None,
-                 endpoint_url: Optional[str] = None):
+    def __init__(
+        self,
+        service_name: str,
+        profile_name: Optional[str] = None,
+        aws_access_key_id: Optional[str] = None,
+        aws_secret_access_key: Optional[str] = None,
+        endpoint_url: Optional[str] = None,
+        iam_role_assigned: Optional[bool] = False,
+    ):
         self.service_name = service_name
         self.profile_name = profile_name
         self.aws_access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.endpoint_url = endpoint_url
+        self.iam_role_assigned = iam_role_assigned
 
     def set_profile_name(self, profile_name: str):
         self.profile_name = profile_name
@@ -30,31 +37,37 @@ class Boto3ClientBuilder:
         self.endpoint_url = endpoint_url
 
     def build_client(self):
-        if self.profile_name:
+        if self.iam_role_assigned:
+            session = boto3.Session()
+        elif self.profile_name:
             session = boto3.Session(profile_name=self.profile_name)
         else:
             session_kwargs = {}
             if self.aws_access_key_id and self.aws_secret_access_key:
-                session_kwargs['aws_access_key_id'] = self.aws_access_key_id
-                session_kwargs['aws_secret_access_key'] = self.aws_secret_access_key
+                session_kwargs["aws_access_key_id"] = self.aws_access_key_id
+                session_kwargs["aws_secret_access_key"] = self.aws_secret_access_key
             session = boto3.Session(**session_kwargs)
-        client_kwargs = {'service_name': self.service_name}
+        client_kwargs = {"service_name": self.service_name}
         if self.endpoint_url:
-            client_kwargs['endpoint_url'] = self.endpoint_url
+            client_kwargs["endpoint_url"] = self.endpoint_url
         return session.client(**client_kwargs)
 
-aws_plugin_name = next((name for name in mad.active_plugins if name.startswith("aws_integration")), None)
+
+aws_plugin_name = next(
+    (name for name in mad.active_plugins if name.startswith("aws_integration")), None
+)
 
 if aws_plugin_name:
     aws_integration = mad.plugins.get(aws_plugin_name)
     if aws_integration:
         settings = aws_integration.load_settings()
         client_builder = Boto3ClientBuilder(
-            service_name='bedrock',
-            profile_name=settings.get('credentials_profile_name'),
-            aws_access_key_id=settings.get('aws_access_key_id'),
-            aws_secret_access_key=settings.get('aws_secret_access_key'),
-            endpoint_url=settings.get('endpoint_url')
+            service_name="bedrock",
+            profile_name=settings.get("credentials_profile_name"),
+            aws_access_key_id=settings.get("aws_access_key_id"),
+            aws_secret_access_key=settings.get("aws_secret_access_key"),
+            endpoint_url=settings.get("endpoint_url"),
+            iam_role_assigned=settings.get("iam_role_assigned"),
         )
         client = client_builder.build_client()
         print("AWS client successfully created.")
@@ -62,6 +75,7 @@ if aws_plugin_name:
         print("AWS integration plugin found, but could not be accessed.")
 else:
     print("No AWS integration plugin found.")
+
 
 def create_dynamic_model() -> BaseModel:
     fields = {
@@ -75,7 +89,7 @@ def create_dynamic_model() -> BaseModel:
         "optional_date": (date, Field(default=date.fromtimestamp(1679616000))),
         "aws_region": (str, Field(default="us-east-1")),
     }
-    
+
     response = client.list_foundation_models(byOutputModality="EMBEDDING")
     models = defaultdict(list)
     for model in response["modelSummaries"]:
