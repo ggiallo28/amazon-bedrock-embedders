@@ -18,7 +18,7 @@ permissions:
 env:
   PLUGIN_JSON: "1.1.0"
   TAG_EXISTS: false
-  PLUGIN_NAME: "bedrock_embedder"
+  PLUGIN_NAME: "bedrock_embedders"
 
 jobs:
   release:
