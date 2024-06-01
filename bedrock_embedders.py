@@ -99,7 +99,12 @@ class AmazonBedrockEmbeddingsSettings(DynamicModel):
         for emb in values.keys():
             if values[emb]:
                 cls._current_embedders.append(config_embedders[emb])
-        print("Dynamically Selected:", cls._current_embedders)
+        
+        log.info("Dynamically Selected Embedders:")
+        log.info([
+            embedder.model_config['json_schema_extra']['humanReadableName']
+            for embedder in cls._current_embedders
+        ])
         return values
 
 @plugin
@@ -109,7 +114,7 @@ def settings_model():
 @hook
 def factory_allowed_embedders(allowed, cat) -> List:
     AmazonBedrockEmbeddingsSettings.init_embedder()
-    aws_plugin = MadHatter().plugins.get("bedrock_embedder")
+    aws_plugin = MadHatter().plugins.get("bedrock_embedders")
     plugin_settings = aws_plugin.load_settings()
     AmazonBedrockEmbeddingsSettings(**plugin_settings)
     return allowed + AmazonBedrockEmbeddingsSettings.get_embedders()
