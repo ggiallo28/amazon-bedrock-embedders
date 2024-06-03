@@ -4,7 +4,7 @@
     "description": "This plugin integrates Amazon Bedrock's text embedding capabilities.",
     "author_name": "Gianluigi Mucciolo",
     "author_url": "https://www.linkedin.com/in/ggiallo28/",
-    "plugin_url": "https://github.com/ggiallo28/aws-integration.git",
+    "plugin_url": "https://github.com/ggiallo28/amazon-bedrock-embedders.git",
     "tags": "AWS, Bedrock, embeddings, integration",
     "thumb": "https://raw.githubusercontent.com/ggiallo28/bedrock-embeddings/master/assets/logo1.png"
 }
